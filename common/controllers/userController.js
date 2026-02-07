@@ -80,6 +80,23 @@ export async function loginUser(req,res) {
         })
     }
 };
+
+export async function getUserByID(req,res) {
+    try {
+        const user = await User.findOne({userID:req.params.ID});
+        if(!user){
+            return res.status(400).json({
+                msg:"user not found"
+            });
+        }
+        res.status(201).json(user);
+    } catch (err) {
+        res.status(500).json({
+            msg:err.message
+        });
+    }
+};
+
 function genarateToken(id){
     return jwt.sign({id},process.env.SECRET_KEY,{
         expiresIn:'30d',
