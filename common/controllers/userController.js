@@ -1,5 +1,6 @@
 import User from "../models/User.js";
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 
 export async function RegisterUser(req,res) {
     try {
@@ -62,8 +63,25 @@ export async function loginUser(req,res) {
                 msg:"Invalid email or password"
             });
         }
+        if(user&&isMatch){
+            res.status(201).json({
+                msg:"login successfull",
+                userID:user.userID,
+                name:user.name,
+                email:user.email,
+                role:user.role,
+                token:genarateToken(user._id)
+            })
+        }
         
     } catch (err) {
-        
+        res.status(500).json({
+            msg:err.message
+        })
     }
-}
+};
+function genarateToken(id){
+    return jwt.sign({id},process.env.SECRET_KEY,{
+        expiresIn:'30d',
+    })
+};
