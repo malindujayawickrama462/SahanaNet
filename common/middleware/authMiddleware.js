@@ -18,7 +18,7 @@ export const protect = async (req, res, next) => {
       });
     }
 
-    const decoded = jwt.verify(token,"malindu123");
+    const decoded = jwt.verify(token,process.env.SECRET_KEY);
 
    
     const user = await User.findById(decoded.id).select("-password");
