@@ -10,4 +10,4 @@ import mongoose from "mongoose"
         console.error("MongoDB connection failed",err.message);
         process.exit();
     }
- };
+ }; 
