@@ -1,9 +1,10 @@
 import { apiFetch } from '../api/client';
 import { clearToken, setToken } from './storage';
 
-export async function register({ name, email, password, role }) {
+export async function register({ name, email, password, role }, { auth = false } = {}) {
   return apiFetch('/user/register', {
     method: 'POST',
+    auth,
     body: JSON.stringify({ name, email, password, role }),
   });
 }

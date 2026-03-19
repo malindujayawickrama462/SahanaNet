@@ -69,7 +69,7 @@ export default function AdminDashboard() {
     }
     setCreating(true);
     try {
-      const data = await register({ name, email, password, role });
+      const data = await register({ name, email, password, role }, { auth: true });
       setCreatedMsg(`Created ${data.userID} (${data.role})`);
       setName('');
       setEmail('');
