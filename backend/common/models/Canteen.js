@@ -21,6 +21,14 @@ const canteenSchema = new mongoose.Schema({
         type: Number,
         required: true
     },
+    slotDurationMinutes: {
+        type: Number,
+        default: 5 // Default 5 minutes per slot
+    },
+    maxOrdersPerSlot: {
+        type: Number,
+        default: 10 // Default maximum 10 orders per slot
+    },
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "user",
@@ -35,9 +43,9 @@ const canteenSchema = new mongoose.Schema({
         default: true
     }
 },
-{
-    timestamps: true
-});
+    {
+        timestamps: true
+    });
 
 canteenSchema.pre("save", async function () {
     if (!this.isNew) return;
@@ -50,7 +58,7 @@ canteenSchema.pre("save", async function () {
         this.canteenID = `Canteen-${counter.seq.toString().padStart(4, '0')}`;
     } catch (error) {
         throw error;
-        }
+    }
 });
 
 const Canteen = mongoose.model("canteen", canteenSchema);

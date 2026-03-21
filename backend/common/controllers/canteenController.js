@@ -345,3 +345,23 @@ export async function removeStaffFromCanteen(req, res) {
         });
     }
 }
+
+// Staff: Get the canteen assigned to the logged-in staff member
+export async function getStaffAssignedCanteen(req, res) {
+    try {
+        const assignment = await CanteenStaff.findOne({ staff: req.userId })
+            .populate("canteen");
+
+        if (!assignment) {
+            return res.status(404).json({
+                msg: "No canteen assignment found for this staff member"
+            });
+        }
+
+        res.status(200).json(assignment.canteen);
+    } catch (err) {
+        res.status(500).json({
+            msg: err.message
+        });
+    }
+}

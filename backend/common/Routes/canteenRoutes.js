@@ -9,7 +9,8 @@ import {
     assignManagerToCanteen,
     addStaffToCanteen,
     getCanteenStaff,
-    removeStaffFromCanteen
+    removeStaffFromCanteen,
+    getStaffAssignedCanteen
 } from "../controllers/canteenController.js";
 import { authenticate } from "../middleware/authenticate.js";
 import { authorize } from "../middleware/authorize.js";
@@ -31,5 +32,8 @@ canteenRouter.post("/:canteenID/assign-manager", authenticate, authorize("admin"
 canteenRouter.post("/:canteenID/add-staff", authenticate, authorize("admin"), addStaffToCanteen);
 canteenRouter.get("/:canteenID/staff", authenticate, authorize("admin"), getCanteenStaff);
 canteenRouter.delete("/:canteenID/staff/:staffId", authenticate, authorize("admin"), removeStaffFromCanteen);
+
+// Staff routes
+canteenRouter.get("/staff/my-canteen", authenticate, getStaffAssignedCanteen);
 
 export default canteenRouter;
