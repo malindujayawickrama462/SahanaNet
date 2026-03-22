@@ -8,9 +8,10 @@ import StaffManagement from '../components/StaffManagement';
 import CanteenManagementSection from '../components/CanteenManagementSection';
 import AdminAnalytics from '../components/AdminAnalytics';
 import AdminReportGeneration from '../components/AdminReportGeneration';
+import TopNavbar from '../components/TopNavbar';
 
 export default function AdminDashboard() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const [activeSection, setActiveSection] = useState('dashboard');
 
   const renderSection = () => {
@@ -40,21 +41,12 @@ export default function AdminDashboard() {
       <AdminSidebar activeSection={activeSection} setActiveSection={setActiveSection} />
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto">
-        <div className="sticky top-0 bg-slate-950 border-b border-slate-800 px-8 py-4 flex items-center justify-between">
-          <div>
-            <p className="text-sm text-slate-400">
-              Logged in as <span className="font-mono text-slate-200">{user?.email}</span>
-            </p>
-          </div>
-          <button className="text-sm text-slate-300 hover:text-white" onClick={logout}>
-            Logout
-          </button>
-        </div>
+      <div className="flex-1 flex flex-col overflow-hidden relative">
+        <TopNavbar />
 
-        <div className="p-8">
+        <main className="flex-1 overflow-y-auto p-8 relative z-0">
           {renderSection()}
-        </div>
+        </main>
       </div>
     </div>
   );
