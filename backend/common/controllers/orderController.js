@@ -1,5 +1,7 @@
 import Order from "../models/Order.js";
 import Canteen from "../models/Canteen.js";
+import Counter from "../models/Counter.js";
+import { getIO } from "../services/socketService.js";
 
 // Helper to calculate next available time slot
 const calculateNextSlot = async (canteenID) => {
@@ -48,9 +50,57 @@ const calculateNextSlot = async (canteenID) => {
     return assignedSlot;
 };
 
+export const getAvailableSlots = async (req, res) => {
+    try {
+        const { canteenID } = req.params;
+        const canteen = await Canteen.findById(canteenID);
+        if (!canteen) {
+            return res.status(404).json({ message: "Canteen not found" });
+        }
+
+        const slotDuration = canteen.slotDurationMinutes || 5;
+        const maxOrders = canteen.maxOrdersPerSlot || 10;
+        
+        let now = new Date();
+        let startMinutes = Math.ceil(now.getMinutes() / slotDuration) * slotDuration;
+        let currentSlotStart = new Date(now.setMinutes(startMinutes, 0, 0));
+        
+        const availableSlots = [];
+        const todayStr = currentSlotStart.toISOString().split('T')[0];
+
+        // Generate the next 12 slots (1 hour ahead)
+        for (let i = 0; i < 12; i++) {
+            const startTimeStr = currentSlotStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+            const slotEnd = new Date(currentSlotStart.getTime() + slotDuration * 60000);
+            const endTimeStr = slotEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+            
+            const orderCount = await Order.countDocuments({
+                canteen: canteenID,
+                "timeSlot.startTime": startTimeStr,
+                "timeSlot.date": todayStr,
+                status: { $ne: 'Cancelled' }
+            });
+
+            if (orderCount < maxOrders) {
+                availableSlots.push({
+                    startTime: startTimeStr,
+                    endTime: endTimeStr,
+                    date: todayStr
+                });
+            }
+            
+            currentSlotStart = new Date(currentSlotStart.getTime() + slotDuration * 60000);
+        }
+
+        res.status(200).json({ slots: availableSlots });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 export const placeOrder = async (req, res) => {
     try {
-        const { canteenID, items, totalPrice, paymentMethod } = req.body;
+        const { canteenID, items, totalPrice, paymentMethod, timeSlot } = req.body;
         const today = new Date().toISOString().split('T')[0]; // From authenticate middleware
 
         const newOrder = new Order({
@@ -58,10 +108,11 @@ export const placeOrder = async (req, res) => {
             canteen: canteenID,
             items,
             totalPrice,
+            timeSlot: timeSlot || undefined,
             date: today,
             paymentMethod: paymentMethod === 'Card' ? 'Card' : 'Cash',
             paymentStatus: paymentMethod === 'Card' ? 'Paid' : 'Pending',
-            status: "Requested"
+            status: "Pending"
         });
 
         await newOrder.save();
@@ -85,6 +136,11 @@ export const createPOSOrder = async (req, res) => {
             date: today
         };
 
+        // Generate Daily Walkin POS Token
+        const dailyCounterId = `token_count_${today}`;
+        const tokenCounter = await Counter.findOneAndUpdate({ id: dailyCounterId }, { $inc: { seq: 1 } }, { returnDocument: 'after', upsert: true });
+        const orderToken = `POS-${tokenCounter.seq.toString().padStart(3, '0')}`;
+
         const newOrder = new Order({
             student: req.userId, // Using the Staff's ID as the purchaser
             canteen: canteenID,
@@ -92,6 +148,7 @@ export const createPOSOrder = async (req, res) => {
             totalPrice,
             timeSlot,
             date: today,
+            orderToken,
             paymentMethod: paymentMethod || 'Cash',
             paymentStatus: 'Paid',   // Instantly marked Paid since staff took cash
             status: "Completed"      // Instantly marked Complete for walk-in
@@ -129,14 +186,17 @@ export const getCanteenOrders = async (req, res) => {
                 canteen: canteenID,
                 "timeSlot.date": today,
                 "timeSlot.endTime": { $lt: currentTimeStr },
-                status: 'Pending'
+                status: 'Verified'
             },
             { status: 'Late' }
         );
 
         const orders = await Order.find({
             canteen: canteenID,
-            "timeSlot.date": today
+            $or: [
+                { "timeSlot.date": today },
+                { status: 'Pending' }
+            ]
         })
             .populate('student', 'name userID')
             .sort({ "timeSlot.startTime": 1, orderID: 1 });
@@ -161,10 +221,40 @@ export const updateOrderStatus = async (req, res) => {
             return res.status(404).json({ message: "Order not found" });
         }
 
-        // If staff is transitioning from Requested -> Pending (Accepting the order)
-        if (existingOrder.status === 'Requested' && status === 'Pending') {
-            const nextSlot = await calculateNextSlot(existingOrder.canteen);
-            updateData.timeSlot = nextSlot;
+        // Handle both 'Requested' (legacy) and 'Pending' (new) states
+        if (['Requested', 'Pending'].includes(existingOrder.status) && status === 'Verified') {
+            if (!existingOrder.timeSlot || !existingOrder.timeSlot.startTime) {
+                const nextSlot = await calculateNextSlot(existingOrder.canteen);
+                updateData.timeSlot = nextSlot;
+            } else {
+                updateData.timeSlot = existingOrder.timeSlot;
+            }
+
+            // --- SMART TOKEN GENERATION ---
+            const todayStr = new Date().toISOString().split('T')[0];
+            const tokenCounter = await Counter.findOneAndUpdate(
+                { id: `token_count_${todayStr}` },
+                { $inc: { seq: 1 } },
+                { returnDocument: 'after', upsert: true }
+            );
+            
+            const assignedSlot = updateData.timeSlot?.startTime || existingOrder.timeSlot?.startTime || '00:00';
+            const timeCode = assignedSlot.replace(':', '');
+            const seqStr = tokenCounter.seq.toString().padStart(3, '0');
+            updateData.orderToken = `SQ-${seqStr}-${timeCode}`;
+        }
+        
+        // --- REAL TIME NOTIFICATIONS ---
+        if (status === 'Ready' && existingOrder.status !== 'Ready') {
+            try {
+                const io = getIO();
+                io.to(existingOrder.student.toString()).emit("order-ready", {
+                    orderID: existingOrder.orderID,
+                    message: "Your order is ready to collect at the counter!"
+                });
+            } catch (err) {
+                console.error("Failed to emit order-ready socket event", err);
+            }
         }
 
         const order = await Order.findOneAndUpdate(

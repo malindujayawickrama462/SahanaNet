@@ -49,8 +49,8 @@ const orderSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['Requested', 'Pending', 'Preparing', 'Ready', 'Completed', 'Late', 'Rejected'],
-        default: 'Requested'
+        enum: ['Pending', 'Verified', 'Preparing', 'Ready', 'Completed', 'Late', 'Rejected'],
+        default: 'Pending'
     },
     pickupTime: {
         type: Date
@@ -68,7 +68,7 @@ orderSchema.pre("save", async function () {
     const counter = await Counter.findOneAndUpdate(
         { id: "order_id" },
         { $inc: { seq: 1 } },
-        { new: true, upsert: true }
+        { returnDocument: 'after', upsert: true }
     );
     // Generates an ID like EN-0045
     this.orderID = `EN-${counter.seq.toString().padStart(3, '0')}`;

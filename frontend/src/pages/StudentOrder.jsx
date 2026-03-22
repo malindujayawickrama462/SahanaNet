@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card } from '../components/Card';
 import CheckoutModal from '../components/CheckoutModal';
-import { placeOrder } from '../api/orderApi';
+import { placeOrder, getAvailableSlots } from '../api/orderApi';
 import { generateInvoice } from '../api/invoiceApi';
 import { getAllFoodItems } from '../api/foodApi';
 import { useAuth } from '../auth/AuthContext';
@@ -18,23 +18,35 @@ export default function StudentOrder() {
     const [orderSuccess, setOrderSuccess] = useState(null);
     const [invoiceId, setInvoiceId] = useState(null);
     const [showCheckout, setShowCheckout] = useState(false);
+    const [availableSlots, setAvailableSlots] = useState([]);
+    const [selectedSlot, setSelectedSlot] = useState(null);
 
     useEffect(() => {
-        const fetchMenu = async () => {
+        const fetchMenuAndSlots = async () => {
             try {
                 const data = await getAllFoodItems(canteenId);
                 setMenu(data.items);
+                
+                try {
+                    const slotData = await getAvailableSlots(canteenId);
+                    setAvailableSlots(slotData.slots || []);
+                    if (slotData.slots && slotData.slots.length > 0) {
+                        setSelectedSlot(slotData.slots[0]);
+                    }
+                } catch (e) {
+                    console.error("Failed to load time slots", e);
+                }
             } catch (err) {
                 setError(err.message);
             }
         };
-        fetchMenu();
+        fetchMenuAndSlots();
     }, [canteenId]);
 
     // Setup polling for order confirmation
     useEffect(() => {
         let interval;
-        if (orderSuccess && orderSuccess.status === 'Requested') {
+        if (orderSuccess && orderSuccess.status === 'Pending') {
             interval = setInterval(async () => {
                 try {
                     const res = await fetch(`/api/order/${orderSuccess._id}`, {
@@ -42,10 +54,10 @@ export default function StudentOrder() {
                     });
                     if (res.ok) {
                         const data = await res.json();
-                        if (data.order.status !== 'Requested') {
+                        if (data.order.status !== 'Pending') {
                             setOrderSuccess(data.order);
                             // Generate invoice if accepted and paid via card
-                            if (data.order.status === 'Pending' && data.order.paymentMethod === 'Card') {
+                            if (data.order.status === 'Verified' && data.order.paymentMethod === 'Card') {
                                 try {
                                     const invData = await generateInvoice(data.order._id);
                                     setInvoiceId(invData.invoice._id);
@@ -89,11 +101,12 @@ export default function StudentOrder() {
                 items: cart.map(i => ({ name: i.name, quantity: i.quantity, price: i.price })),
                 totalPrice,
                 paymentMethod,
+                timeSlot: selectedSlot,
                 transactionId // Note: this isn't strictly saved in Order schema currently but we pass it
             };
             const data = await placeOrder(orderData);
 
-            // We do NOT instantly generate the invoice here for Cards because the order is 'Requested'.
+            // We do NOT instantly generate the invoice here for Cards because the order is 'Pending'.
             // The polling interval will catch the staff's acceptance and generate the invoice.
 
             setOrderSuccess(data.order);
@@ -108,6 +121,10 @@ export default function StudentOrder() {
 
     const handleCheckoutDecision = (method) => {
         if (cart.length === 0) return;
+        if (!selectedSlot) {
+            setError("Please select a pickup time slot first.");
+            return;
+        }
         if (method === 'Card') {
             setShowCheckout(true);
         } else {
@@ -116,11 +133,11 @@ export default function StudentOrder() {
     };
 
     if (orderSuccess) {
-        if (orderSuccess.status === 'Requested') {
+        if (orderSuccess.status === 'Pending') {
             return (
                 <div className="min-h-screen bg-slate-950 text-slate-100 px-4 py-10 flex items-center justify-center animate-in fade-in duration-500">
                     <div className="max-w-md w-full space-y-6">
-                        <Card title="Order Sent to Kitchen 📨" subtitle="Awaiting Staff Confirmation">
+                        <Card title="Order Pending... 📨" subtitle="Awaiting Staff Verification">
                             <div className="text-center py-10 space-y-6">
                                 <div className="w-20 h-20 mx-auto rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center border border-amber-500/30 animate-pulse">
                                     <svg className="w-10 h-10 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -163,7 +180,7 @@ export default function StudentOrder() {
         return (
             <div className="min-h-screen bg-slate-950 text-slate-100 px-4 py-10 flex items-center justify-center animate-in zoom-in duration-500">
                 <div className="max-w-md w-full space-y-6">
-                    <Card title="Order Confirmed! ✅" subtitle="Your token has been assigned.">
+                    <Card title="Order Verified! ✅" subtitle="Your token has been assigned.">
                         <div className="text-center py-8 space-y-6">
                             <div className="space-y-2">
                                 <p className="text-sm text-slate-400 uppercase tracking-widest font-bold">Your Token</p>
@@ -175,7 +192,7 @@ export default function StudentOrder() {
                             <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-700/50 space-y-1">
                                 <p className="text-xs text-slate-500 font-bold uppercase">Scheduled Pickup Window</p>
                                 <p className="text-2xl font-bold text-slate-100">
-                                    {orderSuccess.timeSlot.startTime} – {orderSuccess.timeSlot.endTime}
+                                    {orderSuccess.timeSlot?.startTime || "TBD"} – {orderSuccess.timeSlot?.endTime || "TBD"}
                                 </p>
                             </div>
 
@@ -270,23 +287,48 @@ export default function StudentOrder() {
                                 </div>
 
                                 <div className="border-t border-slate-800 pt-4 flex flex-col gap-3">
-                                    <div className="flex justify-between items-end mb-2">
+                                    <div className="flex justify-between items-end mb-4">
                                         <div>
                                             <p className="text-xs text-slate-500 uppercase font-bold">Total Amount</p>
                                             <p className="text-2xl font-black text-slate-100 tracking-tighter">Rs. {totalPrice}/=</p>
                                         </div>
                                     </div>
+                                    
+                                    <div className="flex flex-col gap-1 mb-4">
+                                        <label className="text-xs text-slate-500 uppercase font-bold tracking-widest">Select Pickup Time ✨</label>
+                                        {availableSlots.length > 0 ? (
+                                            <select 
+                                                className="bg-slate-900 border border-slate-700 text-sm font-bold text-emerald-400 rounded-lg p-3 outline-none focus:border-emerald-500 shadow-inner"
+                                                value={selectedSlot ? JSON.stringify(selectedSlot) : ''}
+                                                onChange={(e) => {
+                                                    setError('');
+                                                    setSelectedSlot(JSON.parse(e.target.value));
+                                                }}
+                                            >
+                                                {availableSlots.map((slot, idx) => (
+                                                    <option key={idx} value={JSON.stringify(slot)}>
+                                                        {slot.startTime} - {slot.endTime}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        ) : (
+                                            <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-xs font-bold text-center">
+                                                Canteen is currently at Full Capacity for orders tonight.
+                                            </div>
+                                        )}
+                                    </div>
+
                                     <div className="grid grid-cols-2 gap-2">
                                         <button
                                             onClick={() => handleCheckoutDecision('Cash')}
-                                            disabled={loading}
+                                            disabled={loading || availableSlots.length === 0}
                                             className="rounded-xl border border-slate-700 bg-slate-900 px-2 py-3 text-xs font-bold text-slate-300 hover:bg-slate-800 transition-all disabled:opacity-50"
                                         >
                                             {loading ? 'Wait...' : 'Pay at Counter'}
                                         </button>
                                         <button
                                             onClick={() => handleCheckoutDecision('Card')}
-                                            disabled={loading}
+                                            disabled={loading || availableSlots.length === 0}
                                             className="rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 px-2 py-3 text-xs font-bold text-white shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 hover:-translate-y-0.5 transition-all disabled:opacity-50 flex items-center justify-center gap-1"
                                         >
                                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>

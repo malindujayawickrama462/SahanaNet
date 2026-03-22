@@ -64,8 +64,8 @@ export default function KitchenDashboard() {
     };
 
     // Separate orders into Requests vs Active
-    const pendingRequests = orders.filter(o => o.status === 'Requested');
-    const activeOrders = orders.filter(o => o.status !== 'Requested');
+    const pendingRequests = orders.filter(o => o.status === 'Pending');
+    const activeOrders = orders.filter(o => o.status !== 'Pending');
 
     // Group active orders by time slot
     const groupedOrders = activeOrders.reduce((acc, order) => {
@@ -133,10 +133,10 @@ export default function KitchenDashboard() {
                                         </div>
                                         <div className="pt-2 border-t border-slate-800 flex gap-2">
                                             <button
-                                                onClick={() => handleUpdateStatus(order._id, 'Pending')}
+                                                onClick={() => handleUpdateStatus(order._id, 'Verified')}
                                                 className="flex-1 py-3 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black uppercase text-xs shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 transition-all hover:-translate-y-0.5"
                                             >
-                                                Accept Order
+                                                Verify Order
                                             </button>
                                             <button
                                                 onClick={() => handleUpdateStatus(order._id, 'Rejected')}
@@ -216,7 +216,7 @@ export default function KitchenDashboard() {
                                                 )}
 
                                                 <div className="flex gap-2 pt-2 border-t border-slate-800">
-                                                    {['Pending', 'Late'].includes(order.status) && (
+                                                    {['Verified', 'Late'].includes(order.status) && (
                                                         <button
                                                             onClick={() => handleUpdateStatus(order._id, 'Preparing')}
                                                             className="flex-1 py-2 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/20 text-xs font-bold uppercase hover:bg-sky-500 hover:text-slate-950 transition-all"

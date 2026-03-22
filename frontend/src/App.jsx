@@ -15,6 +15,7 @@ import ManageMenu from './pages/ManageMenu';
 import InvoiceView from './pages/InvoiceView';
 import UserInvoices from './pages/UserInvoices';
 import StaffLayout from './layouts/StaffLayout';
+import StudentLayout from './layouts/StudentLayout';
 import StaffAnalytics from './pages/StaffAnalytics';
 import StaffOrderHistory from './pages/StaffOrderHistory';
 import StaffPOS from './pages/StaffPOS';
@@ -29,13 +30,17 @@ export default function App() {
 
       <Route element={<RequireAuth />}>
         <Route path="/me" element={<Me />} />
-        <Route path="/home" element={<UserHome />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/change-password" element={<ChangePassword />} />
-        <Route path="/canteens" element={<StudentCanteens />} />
-        <Route path="/order/:canteenId" element={<StudentOrder />} />
-        <Route path="/invoice/:invoiceId" element={<InvoiceView />} />
-        <Route path="/invoices" element={<UserInvoices />} />
+        
+        {/* Student Routes inside Sidebar Layout */}
+        <Route element={<StudentLayout />}>
+          <Route path="/home" element={<UserHome />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/change-password" element={<ChangePassword />} />
+          <Route path="/canteens" element={<StudentCanteens />} />
+          <Route path="/order/:canteenId" element={<StudentOrder />} />
+          <Route path="/invoice/:invoiceId" element={<InvoiceView />} />
+          <Route path="/invoices" element={<UserInvoices />} />
+        </Route>
 
         {/* Staff Routes inside Sidebar Layout */}
         <Route path="/kitchen" element={<StaffLayout />}>

@@ -42,6 +42,19 @@ export const getCanteenOrders = async (canteenID) => {
     return res.json();
 };
 
+export const getAvailableSlots = async (canteenID) => {
+    const res = await fetch(`${API_URL}/canteen/${canteenID}/slots`, {
+        headers: {
+            "Authorization": `Bearer ${localStorage.getItem("smartqueue_token")}`
+        }
+    });
+    if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Failed to fetch available slots");
+    }
+    return res.json();
+};
+
 export const updateOrderStatus = async (statusData) => {
     const res = await fetch(`${API_URL}/status`, {
         method: "PATCH",

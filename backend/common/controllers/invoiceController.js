@@ -1,5 +1,6 @@
 import Invoice from "../models/Invoice.js";
 import Order from "../models/Order.js";
+import User from "../models/User.js";
 
 // Helper for complex fee constraints (e.g. 5% tax + 50LKR flat service charge)
 const calculateTotal = (items) => {
@@ -24,7 +25,10 @@ export const generateInvoice = async (req, res) => {
         // Validate order existence and ownership
         const order = await Order.findById(orderId).populate('canteen');
         if (!order) return res.status(404).json({ message: "Order not found" });
-        if (order.student.toString() !== studentId && req.userRole !== 'admin') {
+        
+        // Fetch user to verify roles globally to prevent dual-tab login 403 errors
+        const user = await User.findById(studentId);
+        if (order.student.toString() !== studentId && user.role !== 'admin' && user.role !== 'staff') {
             return res.status(403).json({ message: "Not authorized to generate invoice for this order" });
         }
 
