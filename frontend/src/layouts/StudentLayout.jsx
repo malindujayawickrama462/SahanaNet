@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import StudentSidebar from '../components/StudentSidebar';
+import TopNavbar from '../components/TopNavbar';
 import { useAuth } from '../auth/AuthContext';
 import { io } from 'socket.io-client';
 
@@ -66,8 +67,12 @@ export default function StudentLayout() {
             )}
 
             {isStudent && <StudentSidebar />}
-            <div className="flex-1 overflow-y-auto">
-                <Outlet />
+            
+            <div className="flex-1 flex flex-col overflow-hidden relative z-0">
+                <TopNavbar />
+                <main className="flex-1 overflow-y-auto">
+                    <Outlet />
+                </main>
             </div>
         </div>
     );
