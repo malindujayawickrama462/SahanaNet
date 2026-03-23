@@ -43,17 +43,23 @@ export default function StudentOrder() {
                 }
 
                 try {
-                    // If Medium traffic, fetch slots starting from the suggested future time
-                    const startTime = (pData && pData.currentStatus === 'Medium') ? pData.suggestedHour : null;
-                    const slotData = await getAvailableSlots(canteenId, startTime);
-                    setAvailableSlots(slotData.slots || []);
-                    if (slotData.slots && slotData.slots.length > 0) {
-                        setSelectedSlot(slotData.slots[0]);
+                    const slotData = await getAvailableSlots(canteenId);
+                    const slots = slotData.slots || [];
+                    setAvailableSlots(slots);
+                    
+                    if (slots.length > 0) {
+                        let initialSlot = slots[0];
+                        // If Medium traffic, automatically select the first slot that is NOT before the suggested time
+                        if (pData && pData.currentStatus === 'Medium' && pData.suggestedHour) {
+                            const validSlot = slots.find(s => s.startTime >= pData.suggestedHour);
+                            if (validSlot) initialSlot = validSlot;
+                        }
+                        setSelectedSlot(initialSlot);
                     }
                 } catch (e) {
                     console.error("Failed to load time slots", e);
                 }
-                
+
             } catch (err) {
                 setError(err.message);
             }
@@ -316,7 +322,7 @@ export default function StudentOrder() {
 
                                     <div className="flex flex-col gap-1 mb-4">
                                         <label className="text-xs text-slate-500 uppercase font-bold tracking-widest">Select Pickup Time ✨</label>
-                                        
+
                                         {peakData && peakData.currentStatus === 'High' ? (
                                             <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-xs font-bold text-center">
                                                 Traffic is High. Pickup selection is completely disabled right now. Please try again later.
@@ -325,7 +331,7 @@ export default function StudentOrder() {
                                             <>
                                                 {peakData && peakData.currentStatus === 'Medium' && (
                                                     <div className="mb-2 p-2 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded text-[10px] font-bold uppercase tracking-wider text-center">
-                                                        Traffic is Medium. Showing slots starting from suggested time.
+                                                        Traffic is Medium. Selectable slots start from {peakData.suggestedHour}.
                                                     </div>
                                                 )}
                                                 <select
@@ -336,11 +342,14 @@ export default function StudentOrder() {
                                                         setSelectedSlot(JSON.parse(e.target.value));
                                                     }}
                                                 >
-                                                    {availableSlots.map((slot, idx) => (
-                                                        <option key={idx} value={JSON.stringify(slot)}>
-                                                            {slot.startTime} - {slot.endTime}
-                                                        </option>
-                                                    ))}
+                                                {availableSlots.map((slot, idx) => {
+                                                        const isMediumTrafficRestricted = peakData && peakData.currentStatus === 'Medium' && slot.startTime < peakData.suggestedHour;
+                                                        return (
+                                                            <option key={idx} value={JSON.stringify(slot)} disabled={isMediumTrafficRestricted}>
+                                                                {slot.startTime} - {slot.endTime} {isMediumTrafficRestricted ? '(Disabled - Peak Traffic)' : ''}
+                                                            </option>
+                                                        );
+                                                    })}
                                                 </select>
                                             </>
                                         ) : (
