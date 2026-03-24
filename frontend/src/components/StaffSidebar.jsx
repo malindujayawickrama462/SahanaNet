@@ -8,6 +8,7 @@ export default function StaffSidebar() {
 
     const links = [
         { path: "/kitchen", label: "Live Queue", icon: "👨‍🍳" },
+        { path: "/kitchen/order-status", label: "Order Status", icon: "📋" },
         { path: "/kitchen/menu", label: "Menu Management", icon: "🍔" },
         { path: "/kitchen/pos", label: "Point of Sale", icon: "🛒" },
         { path: "/kitchen/history", label: "Order History", icon: "📜" },

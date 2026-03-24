@@ -1,6 +1,7 @@
 import Order from "../models/Order.js";
 import Canteen from "../models/Canteen.js";
 import Counter from "../models/Counter.js";
+import Queue from "../models/Queue.js";
 import mongoose from "mongoose";
 import { getIO } from "../services/socketService.js";
 
@@ -484,6 +485,230 @@ export const generateAdminReport = async (req, res) => {
         }
 
         res.status(200).json({ reportType, data: reportData });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// ===== QUEUE & STATUS TRACKING ENDPOINTS =====
+
+// Helper: Create or update queue entry
+const updateQueueEntry = async (orderId, canteenId, status) => {
+    try {
+        const queueEntry = await Queue.findOneAndUpdate(
+            { order: orderId },
+            { 
+                status,
+                actualStartTime: status === 'Cooking' ? new Date() : undefined,
+                actualEndTime: status === 'Ready' ? new Date() : undefined
+            },
+            { new: true }
+        );
+        return queueEntry;
+    } catch (error) {
+        console.error("Error updating queue entry:", error);
+    }
+};
+
+// Helper: Calculate queue position (FCFS based on creation time)
+const calculateQueuePosition = async (canteenId, status) => {
+    const count = await Queue.countDocuments({
+        canteen: canteenId,
+        status
+    });
+    return count + 1;
+};
+
+// Get FCFS Queue - All Verified Orders
+export const getQueueFCFS = async (req, res) => {
+    try {
+        const { canteenID } = req.params;
+
+        const queue = await Order.find({
+            canteen: canteenID,
+            status: 'Verified'
+        })
+            .populate('student', 'name userID')
+            .sort({ createdAt: 1 })
+            .select('orderID orderToken items totalPrice timeSlot student createdAt');
+
+        // Add queue positions
+        const queueWithPositions = queue.map((order, index) => ({
+            ...order.toObject(),
+            queuePosition: index + 1,
+            estimatedWaitTime: `${(index + 1) * 5} minutes` // Estimate 5 min per order
+        }));
+
+        res.status(200).json({ 
+            canteenID,
+            totalInQueue: queue.length,
+            queue: queueWithPositions 
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Get All Cooking/Preparing Orders
+export const getCookingOrders = async (req, res) => {
+    try {
+        const { canteenID } = req.params;
+
+        const cookingOrders = await Order.find({
+            canteen: canteenID,
+            status: 'Preparing'
+        })
+            .populate('student', 'name userID')
+            .sort({ updatedAt: 1 })
+            .select('orderID orderToken items totalPrice student updatedAt');
+
+        res.status(200).json({ 
+            canteenID,
+            totalCooking: cookingOrders.length,
+            orders: cookingOrders 
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Get All Ready Orders
+export const getReadyOrders = async (req, res) => {
+    try {
+        const { canteenID } = req.params;
+
+        const readyOrders = await Order.find({
+            canteen: canteenID,
+            status: 'Ready'
+        })
+            .populate('student', 'name userID')
+            .sort({ updatedAt: 1 })
+            .select('orderID orderToken items student updatedAt');
+
+        res.status(200).json({ 
+            canteenID,
+            totalReady: readyOrders.length,
+            orders: readyOrders 
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Get All Delivered/Completed Orders
+export const getDeliveredOrders = async (req, res) => {
+    try {
+        const { canteenID } = req.params;
+        const today = new Date().toISOString().split('T')[0];
+
+        const deliveredOrders = await Order.find({
+            canteen: canteenID,
+            status: 'Completed',
+            "timeSlot.date": today
+        })
+            .populate('student', 'name userID')
+            .sort({ updatedAt: -1 })
+            .select('orderID orderToken items totalPrice student updatedAt');
+
+        res.status(200).json({ 
+            canteenID,
+            totalDelivered: deliveredOrders.length,
+            orders: deliveredOrders 
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Get All Order Status Summary (Dashboard View)
+export const getOrderStatusSummary = async (req, res) => {
+    try {
+        const { canteenID } = req.params;
+
+        const [verified, cooking, ready, completed] = await Promise.all([
+            Order.countDocuments({ canteen: canteenID, status: 'Verified' }),
+            Order.countDocuments({ canteen: canteenID, status: 'Preparing' }),
+            Order.countDocuments({ canteen: canteenID, status: 'Ready' }),
+            Order.countDocuments({ canteen: canteenID, status: 'Completed' })
+        ]);
+
+        res.status(200).json({
+            canteenID,
+            summary: {
+                inQueue: verified,
+                cooking: cooking,
+                ready: ready,
+                delivered: completed
+            },
+            totalOrders: verified + cooking + ready + completed
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Move Order to Cooking (Start Cooking)
+export const startCooking = async (req, res) => {
+    try {
+        const { orderID } = req.params;
+
+        const order = await Order.findByIdAndUpdate(
+            orderID,
+            { status: 'Preparing' },
+            { new: true }
+        );
+
+        if (!order) {
+            return res.status(404).json({ message: "Order not found" });
+        }
+
+        // Emit socket event
+        try {
+            const io = getIO();
+            io.emit("order-cooking", {
+                orderID: order.orderID,
+                orderToken: order.orderToken,
+                message: "Order started cooking"
+            });
+        } catch (err) {
+            console.error("Socket error:", err);
+        }
+
+        res.status(200).json({ message: "Order cooking started", order });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// All Orders by Status Detailed View
+export const getAllOrdersByStatus = async (req, res) => {
+    try {
+        const { canteenID } = req.params;
+
+        const result = await Order.aggregate([
+            { $match: { canteen: new mongoose.Types.ObjectId(canteenID) } },
+            {
+                $group: {
+                    _id: "$status",
+                    count: { $sum: 1 },
+                    orders: { $push: "$$ROOT" }
+                }
+            },
+            { $sort: { "_id": 1 } }
+        ]);
+
+        const summary = {};
+        result.forEach(item => {
+            summary[item._id] = {
+                count: item.count,
+                orders: item.orders
+            };
+        });
+
+        res.status(200).json({
+            canteenID,
+            statusBreakdown: summary
+        });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
