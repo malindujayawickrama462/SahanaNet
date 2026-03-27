@@ -11,6 +11,7 @@ import AdminCanteens from './pages/AdminCanteens';
 import StudentCanteens from './pages/StudentCanteens';
 import StudentOrder from './pages/StudentOrder';
 import KitchenDashboard from './pages/KitchenDashboard';
+import KitchenOrderStatus from './pages/KitchenOrderStatus';
 import ManageMenu from './pages/ManageMenu';
 import InvoiceView from './pages/InvoiceView';
 import UserInvoices from './pages/UserInvoices';
@@ -47,6 +48,7 @@ export default function App() {
         {/* Staff Routes inside Sidebar Layout */}
         <Route path="/kitchen" element={<StaffLayout />}>
           <Route index element={<KitchenDashboard />} />
+          <Route path="order-status" element={<KitchenOrderStatus />} />
           <Route path="menu" element={<ManageMenu />} />
           <Route path="pos" element={<StaffPOS />} />
           <Route path="analytics" element={<StaffAnalytics />} />
