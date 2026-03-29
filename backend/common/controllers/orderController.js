@@ -73,14 +73,14 @@ export const getAvailableSlots = async (req, res) => {
         const availableSlots = [];
         const todayStr = currentSlotStart.toISOString().split('T')[0];
 
-        // Generate the next 48 slots (4 hours ahead) instead of just 1 hour
-        for (let i = 0; i < 48; i++) {
+        // Generate the next 144 slots (12 hours ahead) to allow orders throughout the day
+        for (let i = 0; i < 144; i++) {
             const startTimeStr = currentSlotStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
             const slotEnd = new Date(currentSlotStart.getTime() + slotDuration * 60000);
             const endTimeStr = slotEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
             
-            // Stop generating slots after 5 PM (17:00) 
-            if (currentSlotStart.getHours() >= 17) break;
+            // Stop generating slots after 11 PM (23:00)
+            if (currentSlotStart.getHours() >= 23) break;
 
             const orderCount = await Order.countDocuments({
                 canteen: canteenID,
@@ -91,6 +91,7 @@ export const getAvailableSlots = async (req, res) => {
 
             if (orderCount < maxOrders) {
                 availableSlots.push({
+                    _id: `${startTimeStr}-${todayStr}`, // Add unique ID for slot selection
                     startTime: startTimeStr,
                     endTime: endTimeStr,
                     date: todayStr
