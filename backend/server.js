@@ -13,6 +13,7 @@ import peakTimeRouter from "./common/Routes/peakTime.js";
 import complaintRouter from "./common/Routes/complaintRoutes.js";
 import notificationRouter from "./common/Routes/notificationRoutes.js";
 import walletRouter from "./common/Routes/walletRoutes.js";
+import businessHoursRouter from "./common/Routes/businessHoursRoutes.js";
 import { initSocket } from "./common/services/socketService.js";
 import { initCronJobs } from "./common/services/cronService.js";
 
@@ -35,6 +36,7 @@ app.use("/api/peaktime", peakTimeRouter);
 app.use("/api/complaint", complaintRouter);
 app.use("/api/notifications", notificationRouter);
 app.use("/api/wallet", walletRouter);
+app.use("/api/business", businessHoursRouter);
 
 const httpServer = createServer(app);
 initSocket(httpServer);

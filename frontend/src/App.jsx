@@ -21,6 +21,7 @@ import StudentLayout from './layouts/StudentLayout';
 import StaffAnalytics from './pages/StaffAnalytics';
 import StaffOrderHistory from './pages/StaffOrderHistory';
 import StaffPOS from './pages/StaffPOS';
+import StaffManagement from './pages/StaffManagement';
 import Wallet from './pages/Wallet';
 import { RequireAdmin, RequireAuth } from './routes/Guards';
 
@@ -55,6 +56,7 @@ export default function App() {
           <Route path="pos" element={<StaffPOS />} />
           <Route path="analytics" element={<StaffAnalytics />} />
           <Route path="history" element={<StaffOrderHistory />} />
+          <Route path="staff-management" element={<StaffManagement />} />
           <Route path="complaints" element={<Complaints />} />
         </Route>
       </Route>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { viewCanteens } from '../api/canteenApi';
 import { Card } from '../components/Card';
+import StaffAvailabilityCard from '../components/StaffAvailabilityCard';
 
 export default function StudentCanteens() {
   const nav = useNavigate();
@@ -89,6 +90,7 @@ export default function StudentCanteens() {
                       {canteen.description && (
                         <p className="text-sm text-slate-300">{canteen.description}</p>
                       )}
+                      <StaffAvailabilityCard canteenId={canteen._id} />
                       <div className="text-sm space-y-1">
                         <div className="flex justify-between">
                           <span className="text-slate-400">Capacity</span>
@@ -131,6 +133,11 @@ export default function StudentCanteens() {
                   <p className="text-sm text-slate-400 mt-1">{selectedCanteen.description}</p>
                 </div>
               )}
+
+              <div className="border-t border-slate-700 pt-4">
+                <h3 className="text-sm font-semibold text-slate-200 mb-3">Staff Availability</h3>
+                <StaffAvailabilityCard canteenId={selectedCanteen._id} />
+              </div>
 
               <div className="border-t border-slate-700 pt-4">
                 <h3 className="text-sm font-semibold text-slate-200 mb-3">Details</h3>
