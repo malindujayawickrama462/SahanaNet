@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import NotificationBell from './NotificationBell';
+import CartMini from './CartMini';
 import { getWalletInfo } from '../api/walletApi';
 import { useNavigate } from 'react-router-dom';
 
@@ -35,7 +36,7 @@ export default function TopNavbar() {
 
       <div className="flex items-center gap-5 border-l border-slate-800 pl-5 ml-auto">
         {wallet && (
-          <div 
+          <div
             onClick={() => nav('/wallet')}
             className="flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 cursor-pointer hover:border-emerald-500/50 transition-colors"
           >
@@ -50,6 +51,7 @@ export default function TopNavbar() {
             </div>
           </div>
         )}
+        {user.role === 'student' && <CartMini />}
         <NotificationBell />
 
         <div className="h-6 w-px bg-slate-800 mx-1"></div>

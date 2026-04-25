@@ -13,8 +13,9 @@ import peakTimeRouter from "./common/Routes/peakTime.js";
 import complaintRouter from "./common/Routes/complaintRoutes.js";
 import notificationRouter from "./common/Routes/notificationRoutes.js";
 import walletRouter from "./common/Routes/walletRoutes.js";
+import cartRouter from "./common/Routes/cartRoutes.js"; 
 import { initSocket } from "./common/services/socketService.js";
-import { initCronJobs } from "./common/services/cronService.js";
+import { initCronJobs } from "./common/services/cronService.js"; 
 
 dotenv.config();
 const app = express();
@@ -35,6 +36,7 @@ app.use("/api/peaktime", peakTimeRouter);
 app.use("/api/complaint", complaintRouter);
 app.use("/api/notifications", notificationRouter);
 app.use("/api/wallet", walletRouter);
+app.use("/api/cart", cartRouter);
 
 const httpServer = createServer(app);
 initSocket(httpServer);
